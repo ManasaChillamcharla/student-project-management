@@ -18,7 +18,7 @@ import com.example.studentproject.repository.ProjectRepository;
 
 @RestController
 @RequestMapping("/projects")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "*")
 public class ProjectController {
 
     @Autowired
@@ -35,6 +35,7 @@ public class ProjectController {
     public List<Project> getAllProjects() {
         return projectRepository.findAll();
     }
+<<<<<<< HEAD
 
     // Update project (EDIT)
     @PutMapping("/{id}")
@@ -60,3 +61,6 @@ public class ProjectController {
         return "Project deleted successfully";
     }
 }
+=======
+}
+>>>>>>> b2467fe9254f4499399a06d063bd9f346e039bde
