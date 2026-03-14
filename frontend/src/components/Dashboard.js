@@ -6,10 +6,28 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import API from "../services/api";
 
+const formatUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  return `https://${url}`;
+};
+
 function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({
+    name: "",
+    rollNumber: "",
+    department: "",
+    abstractText: "",
+    githubLink: "",
+    frontendIp: "",
+    backendIp: "",
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,6 +40,44 @@ function Dashboard() {
       setProjects(response.data);
     } catch (error) {
       console.error("Error fetching projects:", error);
+    }
+  };
+
+  const handleEditClick = (project) => {
+    setEditingId(project.id);
+    setEditData({
+      name: project.name || "",
+      rollNumber: project.rollNumber || "",
+      department: project.department || "",
+      abstractText: project.abstractText || "",
+      githubLink: project.githubLink || "",
+      frontendIp: project.frontendIp || "",
+      backendIp: project.backendIp || "",
+    });
+  };
+
+  const handleUpdate = async (id) => {
+    try {
+      await API.put(`/projects/${id}`, {
+        ...editData,
+        githubLink: formatUrl(editData.githubLink),
+      });
+      setEditingId(null);
+      fetchProjects();
+    } catch (error) {
+      console.error("Error updating project:", error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this project?");
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/projects/${id}`);
+      fetchProjects();
+    } catch (error) {
+      console.error("Error deleting project:", error);
     }
   };
 
@@ -40,7 +96,12 @@ function Dashboard() {
   });
 
   const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(filteredProjects);
+    const worksheet = XLSX.utils.json_to_sheet(
+      filteredProjects.map((project) => ({
+        ...project,
+        githubLink: formatUrl(project.githubLink),
+      }))
+    );
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Projects");
     XLSX.writeFile(workbook, "student_projects.xlsx");
@@ -69,7 +130,7 @@ function Dashboard() {
         project.rollNumber || "",
         project.department || "",
         project.abstractText || "",
-        project.githubLink || "",
+        project.githubLink ? "Open Link" : "-",
         project.frontendIp || "",
         project.backendIp || "",
       ]),
@@ -78,6 +139,22 @@ function Dashboard() {
       },
       headStyles: {
         fillColor: [30, 41, 59],
+      },
+      didDrawCell: (data) => {
+        if (data.section === "body" && data.column.index === 5) {
+          const project = filteredProjects[data.row.index];
+          const url = formatUrl(project.githubLink);
+
+          if (project.githubLink && url) {
+            doc.link(
+              data.cell.x,
+              data.cell.y,
+              data.cell.width,
+              data.cell.height,
+              { url }
+            );
+          }
+        }
       },
     });
 
@@ -173,46 +250,166 @@ function Dashboard() {
                 <th>GitHub Link</th>
                 <th>Frontend IP</th>
                 <th>Backend IP</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredProjects.length > 0 ? (
                 filteredProjects.map((project, index) => (
                   <tr key={project.id || index}>
-                    <td>{project.id}</td>
-                    <td>{project.name}</td>
-                    <td>
-                      <span className="badge">
-                        {project.rollNumber}
-                      </span>
-                    </td>
-                    <td>{project.department}</td>
-                    <td>
-                      {project.abstractText && project.abstractText.length > 80
-                        ? project.abstractText.substring(0, 80) + "..."
-                        : project.abstractText}
-                    </td>
-                    <td>
-                      {project.githubLink ? (
-                        <a
-                          href={project.githubLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="link-text"
-                        >
-                          Open Link
-                        </a>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td>{project.frontendIp || "-"}</td>
-                    <td>{project.backendIp || "-"}</td>
+                    {editingId === project.id ? (
+                      <>
+                        <td>{project.id}</td>
+                        <td>
+                          <TextField
+                            size="small"
+                            value={editData.name}
+                            onChange={(e) =>
+                              setEditData({ ...editData, name: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <TextField
+                            size="small"
+                            value={editData.rollNumber}
+                            onChange={(e) =>
+                              setEditData({ ...editData, rollNumber: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <TextField
+                            select
+                            size="small"
+                            value={editData.department}
+                            onChange={(e) =>
+                              setEditData({ ...editData, department: e.target.value })
+                            }
+                            sx={{ minWidth: 120 }}
+                          >
+                            <MenuItem value="CSE">CSE</MenuItem>
+                            <MenuItem value="IT">IT</MenuItem>
+                            <MenuItem value="DS">DS</MenuItem>
+                            <MenuItem value="AIML">AIML</MenuItem>
+                            <MenuItem value="ECE">ECE</MenuItem>
+                            <MenuItem value="EEE">EEE</MenuItem>
+                            <MenuItem value="MECH">MECH</MenuItem>
+                            <MenuItem value="CIVIL">CIVIL</MenuItem>
+                          </TextField>
+                        </td>
+                        <td>
+                          <TextField
+                            size="small"
+                            value={editData.abstractText}
+                            onChange={(e) =>
+                              setEditData({ ...editData, abstractText: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <TextField
+                            size="small"
+                            value={editData.githubLink}
+                            onChange={(e) =>
+                              setEditData({ ...editData, githubLink: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <TextField
+                            size="small"
+                            value={editData.frontendIp}
+                            onChange={(e) =>
+                              setEditData({ ...editData, frontendIp: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <TextField
+                            size="small"
+                            value={editData.backendIp}
+                            onChange={(e) =>
+                              setEditData({ ...editData, backendIp: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            onClick={() => handleUpdate(project.id)}
+                            sx={{ mr: 1, mb: 1 }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="secondary"
+                            size="small"
+                            onClick={() => setEditingId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{project.id}</td>
+                        <td>{project.name}</td>
+                        <td>
+                          <span className="badge">
+                            {project.rollNumber}
+                          </span>
+                        </td>
+                        <td>{project.department}</td>
+                        <td>
+                          {project.abstractText && project.abstractText.length > 80
+                            ? project.abstractText.substring(0, 80) + "..."
+                            : project.abstractText}
+                        </td>
+                        <td>
+                          {project.githubLink ? (
+                            <a
+                              href={formatUrl(project.githubLink)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="link-text"
+                            >
+                              Open Link
+                            </a>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td>{project.frontendIp || "-"}</td>
+                        <td>{project.backendIp || "-"}</td>
+                        <td>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleEditClick(project)}
+                            sx={{ mr: 1, mb: 1 }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="contained"
+                            color="error"
+                            size="small"
+                            onClick={() => handleDelete(project.id)}
+                          >
+                            Delete
+                          </Button>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="empty-state">
+                  <td colSpan="9" className="empty-state">
                     No projects found
                   </td>
                 </tr>

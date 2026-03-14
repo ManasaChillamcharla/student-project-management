@@ -6,8 +6,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
+import jakarta.persistence.Table;
 
 @Entity
+@Table(name = "projects")
 public class Project {
 
     @Id
@@ -15,7 +17,10 @@ public class Project {
     private Long id;
 
     private String name;
+
+    @Column(nullable = false, unique = true)
     private String rollNumber;
+
     private String department;
 
     @Lob
@@ -25,6 +30,21 @@ public class Project {
     private String frontendIp;
     private String backendIp;
     private String githubLink;
+
+    public Project() {
+    }
+
+    public Project(Long id, String name, String rollNumber, String department, String abstractText,
+                   String frontendIp, String backendIp, String githubLink) {
+        this.id = id;
+        this.name = name;
+        this.rollNumber = rollNumber;
+        this.department = department;
+        this.abstractText = abstractText;
+        this.frontendIp = frontendIp;
+        this.backendIp = backendIp;
+        this.githubLink = githubLink;
+    }
 
     public Long getId() {
         return id;
